@@ -1,7 +1,8 @@
-BeautifulSoup4
+beautifulsoup4
 streamlit
 pandas
 requests
 networkx
 plotly
+
 
