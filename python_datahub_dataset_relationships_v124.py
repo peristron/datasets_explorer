@@ -1,9 +1,10 @@
 # run command:
-#                             streamlit run python_datahub_dataset_relationships_v126.py
+#                             streamlit run python_datahub_dataset_relationships_v129.py
 #                  directory setup: cd C:\users\oakhtar\documents\pyprojs_local
 #   OPTIMIZED for deployment - LKG - as of 11.18.2025
-# v126 update: Fixed an IndexError bug that occurred when rendering the graph edges due to incorrect coordinate unpacking.
-# v126 update: Re-introduced the "discovery" graph mode from v124 as a user-selectable option.
+# v129 update: Fixed a bug in "Discovery" mode where a selected dataset could be incorrectly styled as a 'neighbor' (circle)
+#              instead of a 'focus' (star) node if it was the target of a relationship.
+# v128 update: Dramatically improved graph readability by making "focus" datasets visually distinct.
 
 import pandas as pd
 import re
@@ -173,9 +174,9 @@ def find_pk_fk_joins(df, selected_datasets):
     return result.drop_duplicates().reset_index(drop=True)
 
 def main():
-    st.set_page_config(page_title="Dataset Explorer v126", layout="wide", page_icon="🕸️")
+    st.set_page_config(page_title="Dataset Explorer v129", layout="wide", page_icon="🕸️")
     st.markdown("<h2 style='color: #ffffff; text-align: center;'>Dataset Explorer</h2>", unsafe_allow_html=True)
-    logging.info("--- Streamlit App Initialized v126 ---")
+    logging.info("--- Streamlit App Initialized v129 ---")
 
     with st.sidebar.expander("STEP 1: Load or Update Data", expanded=True):
         st.info("To get the latest data, click the button below. Add any new URLs to the text box first.")
@@ -264,11 +265,25 @@ def main():
         
         else: # 'From selected datasets (Discovery)' mode
             st.caption("This graph shows all datasets that your selected datasets connect to (as Foreign Keys).")
+            # --- V129 BUG FIX STARTS HERE ---
+            # Stage 1: Add all selected datasets as 'focus' nodes to establish ground truth.
+            for dataset in selected_datasets:
+                G.add_node(dataset, type='focus')
+
+            # Stage 2: Iterate through connections to add neighbors and edges.
             for _, row in join_data.iterrows():
-                if row['Source Dataset'] in selected_datasets:
-                    G.add_node(row['Source Dataset'], type='focus')
-                    G.add_node(row['Target Dataset'], type='neighbor')
-                    G.add_edge(row['Source Dataset'], row['Target Dataset'], label=row['Join Column'])
+                source = row['Source Dataset']
+                target = row['Target Dataset']
+
+                if source in selected_datasets:
+                    # If the target node doesn't exist yet, add it as a neighbor.
+                    # This prevents overwriting a 'focus' node that was already added.
+                    if not G.has_node(target):
+                        G.add_node(target, type='neighbor')
+                    
+                    # Now, safely add the edge.
+                    G.add_edge(source, target, label=row['Join Column'])
+            # --- V129 BUG FIX ENDS HERE ---
 
         if not G.nodes():
             if len(selected_datasets) > 1 and graph_mode == 'Between selected datasets (Focused)':
@@ -286,49 +301,53 @@ def main():
             pos = nx.spring_layout(G, k=node_separation, iterations=50) 
             edge_x, edge_y, annotations = [], [], []
             
-            # --- v126 BUG FIX STARTS HERE ---
             for edge in G.edges(data=True):
-                # Correctly unpack the coordinate pairs
                 x0, y0 = pos[edge[0]]
                 x1, y1 = pos[edge[1]]
-                
-                # Use the unpacked scalar values directly
                 edge_x.extend([x0, x1, None])
                 edge_y.extend([y0, y1, None])
-                
                 if show_edge_labels:
-                    annotations.append(dict(
-                        x=(x0 + x1) / 2, 
-                        y=(y0 + y1) / 2, 
-                        text=edge[2].get('label', ''), 
-                        showarrow=False, 
-                        font=dict(color="cyan", size=max(8, graph_font_size - 4))
-                    ))
-            # --- v126 BUG FIX ENDS HERE ---
+                    annotations.append(dict(x=(x0 + x1) / 2, y=(y0 + y1) / 2, text=edge[2].get('label', ''), showarrow=False, font=dict(color="cyan", size=max(8, graph_font_size - 4))))
             
             edge_trace = go.Scatter(x=edge_x, y=edge_y, line=dict(width=1.5, color='#888'), hoverinfo='none', mode='lines')
 
-            node_x, node_y, node_text, node_color, node_size, node_hover = [], [], [], [], [], []
+            node_x, node_y, node_text, node_color, node_hover = [], [], [], [], []
+            node_size, node_symbol, node_line_color, node_line_width = [], [], [], []
+            
             cat_colors = {cat: f"hsl({(hash(cat)*137.5) % 360}, 70%, 60%)" for cat in categories}
 
             for node in G.nodes():
                 x, y = pos[node]
                 node_x.append(x)
                 node_y.append(y)
-                node_text.append(node)
                 
                 node_type = G.nodes[node]['type']
-                node_size.append(30 if node_type == 'focus' else 18)
                 category = columns[columns['dataset_name'] == node]['category'].iloc[0] if not columns[columns['dataset_name'] == node].empty else 'unknown'
                 node_color.append(cat_colors.get(category, '#ccc'))
                 node_hover.append(f"<b>{node}</b><br>Category: {category}<br>Type: {node_type.title()}")
                 
+                if node_type == 'focus':
+                    node_size.append(40)
+                    node_symbol.append('square')
+                    node_text.append(f'<b>{node}</b>')
+                    node_line_color.append('white')
+                    node_line_width.append(3)
+                else: # neighbor
+                    node_size.append(20)
+                    node_symbol.append('circle')
+                    node_text.append(node)
+                    node_line_color.append('gray')
+                    node_line_width.append(1)
+            
             node_trace = go.Scatter(
                 x=node_x, y=node_y, mode='markers+text',
                 hoverinfo='text', hovertext=node_hover,
                 text=node_text, textposition="top center", 
                 textfont=dict(size=graph_font_size, color='#fff'),
-                marker=dict(showscale=False, color=node_color, size=node_size, line_width=2)
+                marker=dict(
+                    showscale=False, color=node_color, size=node_size, symbol=node_symbol,
+                    line=dict(color=node_line_color, width=node_line_width)
+                )
             )
             
             fig = go.Figure(data=[edge_trace, node_trace],
