@@ -260,7 +260,7 @@ def main():
 
     # --- V125: Graphing and Relationship Section - Rewritten for better UX ---
     st.subheader("Dataset Connection Explorer")
-    st.caption("This graph shows direct PK-FK relationships *between* the datasets you selected in the sidebar.")
+    st.caption("This graph visualizes direct, Primary Key-Foreign Key [PK/FK] connections (A → B); INdirect relationships (e.g., A → B → C) aren't displayed")
 
     # Don't try to graph if not enough datasets are selected
     if len(selected_datasets) < 2:
@@ -346,3 +346,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
