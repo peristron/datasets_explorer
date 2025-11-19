@@ -234,7 +234,7 @@ def main():
                 if display_cols_exist: st.dataframe(dataset_cols[display_cols_exist], use_container_width=True, hide_index=True)
                 else: st.write("No detailed columns to display for this dataset.")
     else:
-        st.info("Select one or more datasets from the sidebar to view their details and explore connections.")
+        st.info("Select 1 or more datasets from the sidebar :arrow_left: to view their details and explore connections.")
 
     st.subheader("Dataset Connection Explorer")
 
@@ -243,11 +243,11 @@ def main():
         ('Between selected datasets (Focused)', 'From selected datasets (Discovery)'),
         index=0,
         horizontal=True,
-        help="**Focused:** Shows connections only *between* the datasets you selected. **Discovery:** Shows all datasets that your selected datasets connect *to*."
+        help="**Focused:** Shows connections only *between* the datasets you selected. **Discovery:** Shows all datasets that your selected datasets connect *to*"
     )
 
     if not selected_datasets:
-        st.info("Select one or more datasets in the sidebar to begin.")
+        st.info("Select one or more datasets in the sidebar :arrow_left: to begin.")
     else:
         join_data = find_pk_fk_joins(columns, selected_datasets)
         G = nx.DiGraph()
@@ -255,7 +255,7 @@ def main():
         if graph_mode == 'Between selected datasets (Focused)':
             st.caption("This graph visualizes direct, Primary Key-Foreign Key [PK/FK] connections (A → B); INdirect relationships (e.g., A → B → C) aren't displayed")
             if len(selected_datasets) < 2:
-                st.info("Select at least two datasets in the sidebar for this mode.")
+                st.info("Select at least 2 datasets in the sidebar for this mode")
             else:
                 for _, row in join_data.iterrows():
                     if row['Source Dataset'] in selected_datasets and row['Target Dataset'] in selected_datasets:
@@ -362,5 +362,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
