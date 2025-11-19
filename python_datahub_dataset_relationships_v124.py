@@ -247,7 +247,7 @@ def main():
     )
 
     if not selected_datasets:
-        st.info("Select one or more datasets in the sidebar :arrow_left: to begin.")
+        st.info("Select 1 or more datasets in the sidebar :arrow_left: to begin.")
     else:
         join_data = find_pk_fk_joins(columns, selected_datasets)
         G = nx.DiGraph()
@@ -362,6 +362,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
