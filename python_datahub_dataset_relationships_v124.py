@@ -209,7 +209,7 @@ def main():
         
     categories = sorted(c for c in columns['category'].unique() if c)
     datasets = sorted(d for d in columns['dataset_name'].unique() if d)
-    st.sidebar.info(f"Loaded {len(datasets)} datasets across {len(categories)} categories.")
+    st.sidebar.info(f"Loaded {len(datasets)} datasets across {len(categories)} categories")
     
     selected_categories = st.sidebar.multiselect("Filter by Category", categories, default=[])
     filtered_datasets = sorted(columns[columns['category'].isin(selected_categories)]['dataset_name'].unique()) if selected_categories else datasets
@@ -234,7 +234,7 @@ def main():
                 if display_cols_exist: st.dataframe(dataset_cols[display_cols_exist], use_container_width=True, hide_index=True)
                 else: st.write("No detailed columns to display for this dataset.")
     else:
-        st.info("Select 1 or more datasets from the sidebar :arrow_left: to view their details and explore connections.")
+        st.info("Select 1 or more datasets from the sidebar :arrow_left: to view their details and explore connections")
 
     st.subheader("Dataset Connection Explorer")
 
@@ -247,7 +247,7 @@ def main():
     )
 
     if not selected_datasets:
-        st.info("Select 1 or more datasets in the sidebar :arrow_left: to begin.")
+        st.info("Select 1 or more datasets in the sidebar :arrow_left: to begin")
     else:
         join_data = find_pk_fk_joins(columns, selected_datasets)
         G = nx.DiGraph()
@@ -362,6 +362,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
