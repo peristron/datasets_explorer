@@ -213,7 +213,7 @@ def main():
     
     selected_categories = st.sidebar.multiselect("Filter by Category", categories, default=[])
     filtered_datasets = sorted(columns[columns['category'].isin(selected_categories)]['dataset_name'].unique()) if selected_categories else datasets
-    selected_datasets = st.sidebar.multiselect("Select Datasets to Explore", filtered_datasets, default=[], help="Select datasets to view their details and graph their connections.")
+    selected_datasets = st.sidebar.multiselect("Select Datasets to Explore", filtered_datasets, default=[], help="Select datasets to view their details and graph their connections")
     
     st.sidebar.subheader("Graph Layout Controls")
     graph_font_size = st.sidebar.slider("Node Font Size", 8, 24, 16)
@@ -362,6 +362,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
