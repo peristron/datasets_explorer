@@ -219,7 +219,7 @@ def main():
     graph_font_size = st.sidebar.slider("Node Font Size", 8, 24, 16)
     node_separation = st.sidebar.slider("Node Separation", 0.1, 2.5, 0.9)
     graph_height = st.sidebar.slider("Graph Height (px)", 500, 1500, 700)
-    show_edge_labels = st.sidebar.checkbox("Show Join Column Labels", False)
+    show_edge_labels = st.sidebar.checkbox("Show Join Column Labels", True
 
     with st.expander("❓ How to Use This Application", expanded=False):
         st.markdown("""...""") # How-to guide text remains the same
@@ -362,3 +362,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
