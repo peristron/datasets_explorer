@@ -178,7 +178,7 @@ def main():
     st.markdown("<h2 style='color: #ffffff; text-align: center;'>Dataset Explorer</h2>", unsafe_allow_html=True)
     logging.info("--- Streamlit App Initialized v129 ---")
 
-    with st.sidebar.expander("STEP 1: Load or Update Data", expanded=True):
+    with st.sidebar.expander("**STEP 1**: Load or Update Data", expanded=True):
         st.info("To get the latest data, click the button below. Add any new URLs to the text box first.")
         pasted_text = st.text_area("URLs to Scrape (1 per line):", height=250, key="paste_area", value=DEFAULT_URLS)
         if st.button("Scrape All URLs in Text Area", type="primary"):
@@ -372,6 +372,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
