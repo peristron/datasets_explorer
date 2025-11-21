@@ -1,5 +1,5 @@
 # run command:
-#                             streamlit run python_datahub_dataset_relationships_v129.py
+#                             streamlit run python_datahub_dataset_relationships_v131.py
 #                  directory setup: cd C:\users\oakhtar\documents\pyprojs_local
 #   OPTIMIZED for deployment - LKG - as of 11.18.2025
 # v129 update: Fixed a bug in "Discovery" mode where a selected dataset could be incorrectly styled as a 'neighbor' (circle)
@@ -67,7 +67,7 @@ https://community.d2l.com/brightspace/kb/articles/4541-virtual-classroom-data-se
 
 
 def parse_urls_from_text_area(text_block):
-    """takes a block of text and extracts all valid URLs, 1 per line"""
+    """Takes a block of text and extracts all valid URLs, one per line."""
     logging.info("Parsing text area for URLs...")
     urls = [line.strip() for line in text_block.split('\n') if line.strip()]
     valid_urls = [url for url in urls if url.startswith('http')]
@@ -76,7 +76,7 @@ def parse_urls_from_text_area(text_block):
     return unique_urls
 
 def scrape_table(url, category_name):
-    """scrapes table data from a single dataset page"""
+    """Scrapes table data from a single dataset page."""
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'}
     try:
         response = requests.get(url, headers=headers, timeout=15, verify=False)
@@ -112,7 +112,7 @@ def scrape_table(url, category_name):
         return []
 
 def scrape_and_save_from_list(url_list):
-    """orchestrates scraping all URLs from the provided list"""
+    """Orchestrates scraping all URLs from the provided list."""
     all_data = []
     progress_bar = st.progress(0, "Scraping dataset pages...")
     
@@ -175,12 +175,28 @@ def find_pk_fk_joins(df, selected_datasets):
 
 def main():
     st.set_page_config(page_title="Dataset Explorer v129", layout="wide", page_icon="🕸️")
-    st.markdown("<h2 style='color: #ffffff; text-align: center;'>Dataset Explorer</h2>", unsafe_allow_html=True)
-    logging.info("--- Streamlit App Initialized v129 ---")
+    st.markdown(
+        """
+        <style>
+        /* Target the container (for the arrow icon) */
+        [data-testid="stSidebar"] [data-testid="stExpander"] summary {
+            font-size: 1.4rem !important;
+        }
+        
+        /* Target the actual text (which is inside a paragraph tag because of Markdown) */
+        [data-testid="stSidebar"] [data-testid="stExpander"] summary p {
+            font-size: 1.4rem !important;
+            font-weight: 800 !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    logging.info("--- Streamlit App Initialized v131 ---")
 
-    with st.sidebar.expander("**STEP 1**: Load or Update Data", expanded=True):
-        st.info("To get the latest data, click the button below. Add any new URLs to the text box first.")
-        pasted_text = st.text_area("URLs to Scrape (1 per line):", height=250, key="paste_area", value=DEFAULT_URLS)
+    with st.sidebar.expander("⚠️ **STEP 1: Load/Update Data (Required)**", expanded=False):
+        st.info("To get the latest data, click the button below. Add any new URLs to the text box first")
+        pasted_text = st.text_area("URLs to Scrape (one per line):", height=250, key="paste_area", value=DEFAULT_URLS)
         if st.button("Scrape All URLs in Text Area", type="primary"):
             url_list = parse_urls_from_text_area(pasted_text)
             if not url_list:
@@ -215,11 +231,11 @@ def main():
     filtered_datasets = sorted(columns[columns['category'].isin(selected_categories)]['dataset_name'].unique()) if selected_categories else datasets
     selected_datasets = st.sidebar.multiselect("Select Datasets to Explore", filtered_datasets, default=[], help="Select datasets to view their details and graph their connections")
     
-    st.sidebar.subheader("Graph Layout Controls")
-    graph_font_size = st.sidebar.slider("Node Font Size", 8, 24, 16)
-    node_separation = st.sidebar.slider("Node Separation", 0.1, 2.5, 0.9)
-    graph_height = st.sidebar.slider("Graph Height (px)", 500, 1500, 700)
-    show_edge_labels = st.sidebar.checkbox("Show Join Column Labels", True)
+    with st.sidebar.expander("🛠️ Graph Layout Controls", expanded=False):
+        graph_font_size = st.slider("Node Font Size", 8, 24, 16)
+        node_separation = st.slider("Node Separation", 0.1, 2.5, 0.9)
+        graph_height = st.slider("Graph Height (px)", 500, 1500, 700)
+        show_edge_labels = st.checkbox("Show Join Column Labels", True)
 
     with st.expander("❓ How to Use This Application", expanded=False):
         st.markdown("""
@@ -239,12 +255,30 @@ def main():
         for dataset in selected_datasets:
             with st.expander(f"Details for: **{dataset}**", expanded=False):
                 dataset_cols = columns[columns['dataset_name'] == dataset].copy()
-                display_cols = ['column_name', 'data_type', 'description', 'key', 'version']
-                display_cols_exist = [c for c in display_cols if c in dataset_cols.columns and not dataset_cols[c].astype(str).str.strip().eq('').all()]
-                if display_cols_exist: st.dataframe(dataset_cols[display_cols_exist], use_container_width=True, hide_index=True)
-                else: st.write("No detailed columns to display for this dataset.")
+                
+                # 1. Define columns to EXCLUDE (internal flags or redundant info)
+                exclude_cols = ['dataset_name', 'category', 'is_primary_key', 'is_foreign_key', 'foreign_key_references']
+                
+                # 2. Dynamically find all columns that:
+                #    a) Are NOT in the exclude list
+                #    b) Actually contain data (are not completely empty/blank for this dataset)
+                display_cols_exist = [
+                    c for c in dataset_cols.columns 
+                    if c not in exclude_cols 
+                    and not dataset_cols[c].astype(str).str.strip().eq('').all()
+                ]
+                
+                # 3. Re-order specific columns to the front for better UX (if they exist)
+                priority_order = ['column_name', 'data_type', 'description', 'key']
+                sorted_cols = [c for c in priority_order if c in display_cols_exist] # Get priority ones first
+                sorted_cols += [c for c in display_cols_exist if c not in priority_order] # Add the rest (newly found columns)
+
+                if sorted_cols:
+                    st.dataframe(dataset_cols[sorted_cols], use_container_width=True, hide_index=True)
+                else:
+                    st.write("No detailed columns to display for this dataset.")
     else:
-        st.info("Select 1 or more datasets from the sidebar :arrow_left: to view their details and explore connections")
+        st.info("Select 1 or more datasets from the sidebar :arrow_left: to view their details and explore connections.")
 
     st.subheader("Dataset Connection Explorer")
 
@@ -253,11 +287,11 @@ def main():
         ('Between selected datasets (Focused)', 'From selected datasets (Discovery)'),
         index=0,
         horizontal=True,
-        help="**Focused:** Shows connections only *between* the datasets you selected. **Discovery:** Shows all datasets that your selected datasets connect *to*"
+        help="**Focused:** Shows connections only *between* the datasets you selected. **Discovery:** Shows all datasets that your selected datasets connect *to*."
     )
 
     if not selected_datasets:
-        st.info("Select 1 or more datasets in the sidebar :arrow_left: to begin")
+        st.info("Select 1 or more datasets in the sidebar :arrow_left: to begin.")
     else:
         join_data = find_pk_fk_joins(columns, selected_datasets)
         G = nx.DiGraph()
@@ -372,16 +406,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
