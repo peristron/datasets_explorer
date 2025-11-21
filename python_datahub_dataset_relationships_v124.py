@@ -180,7 +180,7 @@ def main():
 
     with st.sidebar.expander("STEP 1: Load or Update Data", expanded=True):
         st.info("To get the latest data, click the button below. Add any new URLs to the text box first.")
-        pasted_text = st.text_area("URLs to Scrape (one per line):", height=250, key="paste_area", value=DEFAULT_URLS)
+        pasted_text = st.text_area("URLs to Scrape (1 per line):", height=250, key="paste_area", value=DEFAULT_URLS)
         if st.button("Scrape All URLs in Text Area", type="primary"):
             url_list = parse_urls_from_text_area(pasted_text)
             if not url_list:
@@ -372,6 +372,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
