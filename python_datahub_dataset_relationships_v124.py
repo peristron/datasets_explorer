@@ -67,7 +67,7 @@ https://community.d2l.com/brightspace/kb/articles/4541-virtual-classroom-data-se
 
 
 def parse_urls_from_text_area(text_block):
-    """Takes a block of text and extracts all valid URLs, one per line."""
+    """takes a block of text and extracts all valid URLs, 1 per line"""
     logging.info("Parsing text area for URLs...")
     urls = [line.strip() for line in text_block.split('\n') if line.strip()]
     valid_urls = [url for url in urls if url.startswith('http')]
@@ -76,7 +76,7 @@ def parse_urls_from_text_area(text_block):
     return unique_urls
 
 def scrape_table(url, category_name):
-    """Scrapes table data from a single dataset page."""
+    """scrapes table data from a single dataset page"""
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'}
     try:
         response = requests.get(url, headers=headers, timeout=15, verify=False)
@@ -112,7 +112,7 @@ def scrape_table(url, category_name):
         return []
 
 def scrape_and_save_from_list(url_list):
-    """Orchestrates scraping all URLs from the provided list."""
+    """orchestrates scraping all URLs from the provided list"""
     all_data = []
     progress_bar = st.progress(0, "Scraping dataset pages...")
     
@@ -372,6 +372,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
