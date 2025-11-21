@@ -220,7 +220,7 @@ def main():
         st.warning("No local data cache found. Please use the 'STEP 1: Load or Update Data' section to load data.")
         return
 
-    st.sidebar.title("STEP 2: Explore Datasets")
+    st.sidebar.title("STEP 2: Explore the Datasets")
     if columns.empty: return
         
     categories = sorted(c for c in columns['category'].unique() if c)
@@ -406,5 +406,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
