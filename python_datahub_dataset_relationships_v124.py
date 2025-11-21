@@ -222,7 +222,17 @@ def main():
     show_edge_labels = st.sidebar.checkbox("Show Join Column Labels", True)
 
     with st.expander("❓ How to Use This Application", expanded=False):
-        st.markdown("""...""") # How-to guide text remains the same
+        st.markdown("""
+        ### 1. Get Started
+        Use the **Sidebar** on the left to select datasets. If you haven't loaded data yet, expand "STEP 1" and click the Scrape button.
+
+        ### 2. Graph Modes
+        *   **Focused Mode:** best for checking how two specific tables join together.
+        *   **Discovery Mode:** best for seeing what other tables are related to your selection.
+
+        ### 3. Interactions
+        You can zoom and pan the graph below. Hover over lines to see the specific keys (PK/FK) used to join the data.
+        """)
 
     st.subheader("Dataset Details")
     if selected_datasets:
@@ -362,6 +372,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
