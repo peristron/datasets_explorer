@@ -227,7 +227,7 @@ def main():
     datasets = sorted(d for d in columns['dataset_name'].unique() if d)
     st.sidebar.info(f"Loaded {len(datasets)} datasets across {len(categories)} categories")
     
-    selected_categories = st.sidebar.multiselect("Filter by Category **before** secting datasets", categories, default=[])
+    selected_categories = st.sidebar.multiselect("Filter by Category **before** selecting datasets", categories, default=[])
     filtered_datasets = sorted(columns[columns['category'].isin(selected_categories)]['dataset_name'].unique()) if selected_categories else datasets
     selected_datasets = st.sidebar.multiselect("Select Datasets to Explore", filtered_datasets, default=[], help="Select datasets to view their details and graph their connections")
     
@@ -406,4 +406,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
