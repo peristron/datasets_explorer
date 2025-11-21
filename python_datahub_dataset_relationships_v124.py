@@ -240,7 +240,7 @@ def main():
     with st.expander("❓ How to Use This Application", expanded=False):
         st.markdown("""
         ### 1. Get Started
-        Use the **Sidebar** on the left to select datasets. If you haven't loaded data yet, expand "STEP 1" and click the Scrape button; when net new Dataset **Categories** are created, they will have their own URL which will need to be added in the "URLs to Scrape" field (which the code maintainer will attempt to update and...maintain~)
+        Use the **Sidebar** on the left to select datasets. If you haven't loaded data yet (so: if you **don't** see "Loaded X datasets across Y categories"), expand "STEP 1" and click the Scrape button; when net new Dataset **Categories** are created, they will have their own URL which will need to be added in the "URLs to Scrape" field (which the code maintainer will attempt to update and...maintain~)
 
         ### 2. Graph Modes
         *   **Focused Mode:** best for checking how 2 (or more) specific tables join together
