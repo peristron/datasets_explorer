@@ -1,13 +1,6 @@
-# run command:
-#                             streamlit run python_datahub_dataset_relationships_v131.py
-#                  directory setup: cd C:\users\oakhtar\documents\pyprojs_local
-#   OPTIMIZED for deployment - LKG - as of 11.18.2025
-# v131 update (FINAL - NOV 2025):
-#   • Fixed KeyError when join_data is empty (single dataset / no relationships)
-#   • Discovery mode now always shows the selected dataset(s) even with zero outgoing FKs
-#   • Focused mode now pre-adds all selected datasets → you see them even when no direct joins exist
-#   • Relationships table is now 100% safe and never crashes
-#   • Much better user experience when there are no relationships
+# =============================================================================
+# OPTIMIZED for deployment - LKG - v131 (Fixed & Upgraded)
+# =============================================================================
 
 import pandas as pd
 import re
@@ -19,6 +12,7 @@ from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 import networkx as nx
 import plotly.graph_objects as go
+import openai  # Required for AI features
 
 # Logging Setup & Warning Suppression
 logging.basicConfig(filename='scraper.log', filemode='w', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -67,6 +61,7 @@ https://community.d2l.com/brightspace/kb/articles/4740-users-data-sets
 https://community.d2l.com/brightspace/kb/articles/4541-virtual-classroom-data-sets
 """.strip()
 
+# --- Helper Functions ---
 
 def parse_urls_from_text_area(text_block):
     logging.info("Parsing text area for URLs...")
@@ -171,6 +166,10 @@ def find_pk_fk_joins(df, selected_datasets):
     result.columns = ['Source Dataset', 'Join Column', 'Target Dataset', 'Target Category']
     return result.drop_duplicates().reset_index(drop=True)
 
+# =============================================================================
+# Main Orchestrator
+# =============================================================================
+
 def main():
     st.set_page_config(page_title="Dataset Explorer v131", layout="wide", page_icon="🕸️")
     st.markdown(
@@ -189,6 +188,12 @@ def main():
     )
     logging.info("--- Streamlit App Initialized v131 ---")
 
+    # --- Session State for AI ---
+    if 'total_cost' not in st.session_state: st.session_state['total_cost'] = 0.0
+    if 'total_tokens' not in st.session_state: st.session_state['total_tokens'] = 0
+    if "messages" not in st.session_state: st.session_state.messages = []
+
+    # --- Sidebar: Data Loading ---
     with st.sidebar.expander("⚠️ **STEP 1: Load/Update Data (Required)**", expanded=False):
         st.info("To get the latest data, click the button below. Add any new URLs to the text box first")
         pasted_text = st.text_area("URLs to Scrape (one per line):", height=250, key="paste_area", value=DEFAULT_URLS)
@@ -215,6 +220,7 @@ def main():
         st.warning("No local data cache found. Please use the 'STEP 1: Load or Update Data' section to load data.")
         return
 
+    # --- Sidebar: Selection ---
     st.sidebar.title("STEP 2: Explore the Datasets")
     if columns.empty: return
         
@@ -232,6 +238,23 @@ def main():
         graph_height = st.slider("Graph Height (px)", 500, 1500, 700)
         show_edge_labels = st.checkbox("Show Join Column Labels", True)
 
+    # --- AI Settings in Sidebar ---
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🤖 AI Settings")
+    provider = st.sidebar.selectbox("Provider", ["OpenAI", "xAI"])
+    api_key_env = "openai_api_key" if provider == "OpenAI" else "xai_api_key"
+    api_key = st.secrets.get(api_key_env)
+    
+    if not api_key:
+        api_key = st.sidebar.text_input(f"{provider} API Key", type="password")
+    
+    selected_model_id = st.sidebar.text_input("Model ID", "gpt-4o" if provider == "OpenAI" else "grok-2-1212")
+
+    with st.sidebar.expander("💰 Cost Tracker", expanded=False):
+        st.write(f"Tokens: {st.session_state['total_tokens']:,}")
+        st.write(f"Est. Cost: ${st.session_state['total_cost']:.4f}")
+
+    # --- Main Content ---
     with st.expander("❓ How to Use This Application", expanded=False):
         st.markdown("""
         ### 1. Get Started
@@ -240,9 +263,6 @@ def main():
         ### 2. Graph Modes
         *   **Focused Mode:** best for checking how 2+ specific tables join together
         *   **Discovery Mode:** best for seeing what other tables are related to your selection
-
-        ### 3. Interactions
-        Zoom, pan, hover over edges to see join columns.
         """)
 
     st.subheader("Dataset Details")
@@ -289,15 +309,12 @@ def main():
 
             if len(selected_datasets) < 2:
                 st.info("Select at least 2 datasets for Focused mode.")
-                # Still add the single node so user sees something
                 for ds in selected_datasets:
                     G.add_node(ds, type='focus')
             else:
-                # Pre-add all selected datasets
                 for ds in selected_datasets:
                     G.add_node(ds, type='focus')
 
-                # Add only edges that stay within the selection
                 for _, row in join_data.iterrows():
                     s = row['Source Dataset']
                     t = row['Target Dataset']
@@ -309,12 +326,8 @@ def main():
 
         else:  # Discovery mode
             st.caption("This graph shows all datasets that your selected datasets connect to (as Foreign Keys).")
-
-            # Always add selected datasets first
             for ds in selected_datasets:
                 G.add_node(ds, type='focus')
-
-            # Add outgoing connections
             for _, row in join_data.iterrows():
                 s = row['Source Dataset']
                 t = row['Target Dataset']
@@ -322,9 +335,8 @@ def main():
                     if not G.has_node(t):
                         G.add_node(t, type='neighbor')
                     G.add_edge(s, t, label=row['Join Column'])
-
             if G.number_of_edges() == 0:
-                st.info("No outgoing foreign key relationships found from the selected dataset(s). The selected dataset(s) are shown below.")
+                st.info("No outgoing foreign key relationships found.")
 
         # ==================== ALWAYS RENDER GRAPH IF NODES EXIST ====================
         if G.nodes():
@@ -337,10 +349,7 @@ def main():
                         join_data['Source Dataset'].isin(nodes_set) &
                         join_data['Target Dataset'].isin(nodes_set)
                     ]
-                    if graph_joins.empty:
-                        st.caption("No relationships are displayed in the current graph view.")
-                    else:
-                        st.dataframe(graph_joins, use_container_width=True, hide_index=True)
+                    st.dataframe(graph_joins, use_container_width=True, hide_index=True)
 
             # ------------------- Plotly Graph -------------------
             pos = nx.spring_layout(G, k=node_separation, iterations=50) 
@@ -406,43 +415,37 @@ def main():
                             ))
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("No nodes to display (this shouldn't happen).")
+            st.info("No nodes to display.")
 
-1145
-1146
-1147
-1148
-1149
-1150
-1151
-1152
-1153
-1154
-1155
-1156
-1157
-1158
-1159
-1160
-1161
-1162
-1163
-1164
-1165
-1166
-1167
-1168
-1169
-1170
-1171
-1172
-1173
-1174
-1175
-1176
+    # ==================== AI CHAT SECTION (Fixed Indentation) ====================
+    st.divider()
+    st.header(f"Ask {provider} about your data")
+    
+    # Display existing chat history
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    if prompt := st.chat_input("Ask a question about the schema..."):
+        if api_key:
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            with st.chat_message("assistant"):
+                try:
+                    # Prepare Context
+                    cols_needed = ['dataset_name', 'column_name', 'data_type', 'description', 'key']
+                    context_df = columns[columns['dataset_name'].isin(selected_datasets)][cols_needed] if selected_datasets else columns.head(50)
+                    ctx = context_df.to_csv(index=False)
+                    ctx_head = f"Subset of {len(selected_datasets)} datasets" if selected_datasets else "First 50 rows sample"
+                    
+                    # Logic was previously indented incorrectly here
                     base_url = "https://api.x.ai/v1" if provider == "xAI" else None
                     client = openai.OpenAI(api_key=api_key, base_url=base_url)
                     
+                    model_info = {"in": 2.50, "out": 10.00} # simplified pricing
+
                     # call api
                     with st.spinner(f"Consulting {selected_model_id}..."):
                         resp = client.chat.completions.create(
@@ -458,44 +461,18 @@ def main():
                         if hasattr(resp, 'usage') and resp.usage:
                             in_tok = resp.usage.prompt_tokens
                             out_tok = resp.usage.completion_tokens
-                            # (tokens * price) / 1,000,000
                             cost = (in_tok * model_info['in'] / 1_000_000) + (out_tok * model_info['out'] / 1_000_000)
                             
                             st.session_state['total_tokens'] += (in_tok + out_tok)
                             st.session_state['total_cost'] += cost
                     
-                    # save response and refresh
+                    st.markdown(reply)
                     st.session_state.messages.append({"role": "assistant", "content": reply})
-                    st.rerun()
                     
                 except Exception as e:
                     st.error(f"AI Error: {str(e)}")
-            else:
-                st.error(f"Please provide an API Key for {provider}.")
-
-
-# =============================================================================
-# 10. main orchestrator
-# =============================================================================
-
-def main():
-    """main entry point that orchestrates the application."""
-    df = load_data()
-    
-    view = render_sidebar(df)
-    
-    if df.empty:
-        st.title("Welcome")
-        st.info("No data found. Please use the Sidebar to scrape the KB articles.")
-        return
-
-    # view router - render appropriate view based on sidebar selection
-    if view == "Universe Map":
-        render_map_view(df)
-    elif view == "Schema Explorer":
-        render_schema_view(df)
-    elif view == "AI Architect":
-        render_ai_view(df)
+        else:
+            st.error(f"Please provide an API Key for {provider} in the Sidebar.")
 
 
 if __name__ == "__main__":
