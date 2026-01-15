@@ -408,24 +408,112 @@ def main():
         else:
             st.info("No nodes to display (this shouldn't happen).")
 
+1145
+1146
+1147
+1148
+1149
+1150
+1151
+1152
+1153
+1154
+1155
+1156
+1157
+1158
+1159
+1160
+1161
+1162
+1163
+1164
+1165
+1166
+1167
+1168
+1169
+1170
+1171
+1172
+1173
+1174
+1175
+1176
+                    base_url = "https://api.x.ai/v1" if provider == "xAI" else None
+                    client = openai.OpenAI(api_key=api_key, base_url=base_url)
+                    
+                    # call api
+                    with st.spinner(f"Consulting {selected_model_id}..."):
+                        resp = client.chat.completions.create(
+                            model=selected_model_id,
+                            messages=[
+                                {"role": "system", "content": f"You are a Brightspace SQL Expert. Context ({ctx_head}):\n{ctx[:60000]}"},
+                                {"role": "user", "content": prompt}
+                            ]
+                        )
+                        reply = resp.choices[0].message.content
+                        
+                        # calculate cost
+                        if hasattr(resp, 'usage') and resp.usage:
+                            in_tok = resp.usage.prompt_tokens
+                            out_tok = resp.usage.completion_tokens
+                            # (tokens * price) / 1,000,000
+                            cost = (in_tok * model_info['in'] / 1_000_000) + (out_tok * model_info['out'] / 1_000_000)
+                            
+                            st.session_state['total_tokens'] += (in_tok + out_tok)
+                            st.session_state['total_cost'] += cost
+                    
+                    # save response and refresh
+                    st.session_state.messages.append({"role": "assistant", "content": reply})
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"AI Error: {str(e)}")
+            else:
+                st.error(f"Please provide an API Key for {provider}.")
+
+
+# =============================================================================
+# 10. main orchestrator
+# =============================================================================
+
+def main():
+    """main entry point that orchestrates the application."""
+    df = load_data()
+    
+    view = render_sidebar(df)
+    
+    if df.empty:
+        st.title("Welcome")
+        st.info("No data found. Please use the Sidebar to scrape the KB articles.")
+        return
+
+    # view router - render appropriate view based on sidebar selection
+    if view == "Universe Map":
+        render_map_view(df)
+    elif view == "Schema Explorer":
+        render_schema_view(df)
+    elif view == "AI Architect":
+        render_ai_view(df)
+
+
 if __name__ == "__main__":
+    # =========================================================
+    # 🍞 UPGRADE TOAST (Placed BEFORE main so it always runs)
+    # =========================================================
+    try:
+        import streamlit as st
+        # Pop-up notification
+        st.toast("📢 **New Version Available!** Check the Unified Explorer.", icon="🚀")
+        
+        # Sidebar button (sticky)
+        st.sidebar.markdown("---")
+        st.sidebar.link_button("✨ Go to Unified Explorer v2", "https://datasetsunifiedexplorer.streamlit.app/", type="primary")
+    except Exception:
+        pass
+
+    # =========================================================
+    # 🏃 RUN APP
+    # =========================================================
     main()
-
-# =========================================================
-# 🍞 UPGRADE TOAST
-# 
-try:
-    # brief wait so it animates in after page load
-    import time
-    
-    # pop-up notification in the top right
-    st.toast("📢 **New Version Available!** Check the Unified Explorer.", icon="🚀")
-    
-    # and add button to sidebar as a fallback reference
-    st.sidebar.markdown("---")
-    st.sidebar.link_button("✨ Go to Unified Explorer v2", "https://datasetsunifiedexplorer.streamlit.app/", type="primary")
-    
-except Exception:
-    pass
-
-
