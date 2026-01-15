@@ -1,5 +1,5 @@
 # =============================================================================
-# OPTIMIZED for deployment - LKG - v131 (Fixed & Upgraded)
+# OPTIMIZED for deployment - LKG - v131 (Safe Import Version)
 # =============================================================================
 
 import pandas as pd
@@ -12,7 +12,13 @@ from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 import networkx as nx
 import plotly.graph_objects as go
-import openai  # Required for AI features
+
+# --- SAFE IMPORT FOR OPENAI ---
+# This prevents the app from crashing if 'openai' is missing from requirements.txt
+try:
+    import openai
+except ImportError:
+    openai = None  # Flag to disable AI features gracefully
 
 # Logging Setup & Warning Suppression
 logging.basicConfig(filename='scraper.log', filemode='w', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -241,18 +247,22 @@ def main():
     # --- AI Settings in Sidebar ---
     st.sidebar.markdown("---")
     st.sidebar.subheader("🤖 AI Settings")
-    provider = st.sidebar.selectbox("Provider", ["OpenAI", "xAI"])
-    api_key_env = "openai_api_key" if provider == "OpenAI" else "xai_api_key"
-    api_key = st.secrets.get(api_key_env)
     
-    if not api_key:
-        api_key = st.sidebar.text_input(f"{provider} API Key", type="password")
-    
-    selected_model_id = st.sidebar.text_input("Model ID", "gpt-4o" if provider == "OpenAI" else "grok-2-1212")
+    if openai is None:
+        st.sidebar.warning("⚠️ OpenAI Library Missing. AI features disabled.")
+    else:
+        provider = st.sidebar.selectbox("Provider", ["OpenAI", "xAI"])
+        api_key_env = "openai_api_key" if provider == "OpenAI" else "xai_api_key"
+        api_key = st.secrets.get(api_key_env)
+        
+        if not api_key:
+            api_key = st.sidebar.text_input(f"{provider} API Key", type="password")
+        
+        selected_model_id = st.sidebar.text_input("Model ID", "gpt-4o" if provider == "OpenAI" else "grok-2-1212")
 
-    with st.sidebar.expander("💰 Cost Tracker", expanded=False):
-        st.write(f"Tokens: {st.session_state['total_tokens']:,}")
-        st.write(f"Est. Cost: ${st.session_state['total_cost']:.4f}")
+        with st.sidebar.expander("💰 Cost Tracker", expanded=False):
+            st.write(f"Tokens: {st.session_state['total_tokens']:,}")
+            st.write(f"Est. Cost: ${st.session_state['total_cost']:.4f}")
 
     # --- Main Content ---
     with st.expander("❓ How to Use This Application", expanded=False):
@@ -417,62 +427,69 @@ def main():
         else:
             st.info("No nodes to display.")
 
-    # ==================== AI CHAT SECTION (Fixed Indentation) ====================
+    # ==================== AI CHAT SECTION (Safe Logic) ====================
     st.divider()
-    st.header(f"Ask {provider} about your data")
     
-    # Display existing chat history
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    if openai is None:
+        st.header("🤖 Ask AI about your data (Disabled)")
+        st.warning("""
+        **AI Features Unavailable:** The `openai` library is missing from your environment. 
+        To enable this, add `openai` to your `requirements.txt` file.
+        """)
+    else:
+        st.header(f"Ask {provider} about your data")
+        
+        # Display existing chat history
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
-    if prompt := st.chat_input("Ask a question about the schema..."):
-        if api_key:
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
+        if prompt := st.chat_input("Ask a question about the schema..."):
+            if api_key:
+                st.session_state.messages.append({"role": "user", "content": prompt})
+                with st.chat_message("user"):
+                    st.markdown(prompt)
 
-            with st.chat_message("assistant"):
-                try:
-                    # Prepare Context
-                    cols_needed = ['dataset_name', 'column_name', 'data_type', 'description', 'key']
-                    context_df = columns[columns['dataset_name'].isin(selected_datasets)][cols_needed] if selected_datasets else columns.head(50)
-                    ctx = context_df.to_csv(index=False)
-                    ctx_head = f"Subset of {len(selected_datasets)} datasets" if selected_datasets else "First 50 rows sample"
-                    
-                    # Logic was previously indented incorrectly here
-                    base_url = "https://api.x.ai/v1" if provider == "xAI" else None
-                    client = openai.OpenAI(api_key=api_key, base_url=base_url)
-                    
-                    model_info = {"in": 2.50, "out": 10.00} # simplified pricing
-
-                    # call api
-                    with st.spinner(f"Consulting {selected_model_id}..."):
-                        resp = client.chat.completions.create(
-                            model=selected_model_id,
-                            messages=[
-                                {"role": "system", "content": f"You are a Brightspace SQL Expert. Context ({ctx_head}):\n{ctx[:60000]}"},
-                                {"role": "user", "content": prompt}
-                            ]
-                        )
-                        reply = resp.choices[0].message.content
+                with st.chat_message("assistant"):
+                    try:
+                        # Prepare Context
+                        cols_needed = ['dataset_name', 'column_name', 'data_type', 'description', 'key']
+                        context_df = columns[columns['dataset_name'].isin(selected_datasets)][cols_needed] if selected_datasets else columns.head(50)
+                        ctx = context_df.to_csv(index=False)
+                        ctx_head = f"Subset of {len(selected_datasets)} datasets" if selected_datasets else "First 50 rows sample"
                         
-                        # calculate cost
-                        if hasattr(resp, 'usage') and resp.usage:
-                            in_tok = resp.usage.prompt_tokens
-                            out_tok = resp.usage.completion_tokens
-                            cost = (in_tok * model_info['in'] / 1_000_000) + (out_tok * model_info['out'] / 1_000_000)
+                        base_url = "https://api.x.ai/v1" if provider == "xAI" else None
+                        client = openai.OpenAI(api_key=api_key, base_url=base_url)
+                        
+                        model_info = {"in": 2.50, "out": 10.00} # simplified pricing
+
+                        # call api
+                        with st.spinner(f"Consulting {selected_model_id}..."):
+                            resp = client.chat.completions.create(
+                                model=selected_model_id,
+                                messages=[
+                                    {"role": "system", "content": f"You are a Brightspace SQL Expert. Context ({ctx_head}):\n{ctx[:60000]}"},
+                                    {"role": "user", "content": prompt}
+                                ]
+                            )
+                            reply = resp.choices[0].message.content
                             
-                            st.session_state['total_tokens'] += (in_tok + out_tok)
-                            st.session_state['total_cost'] += cost
-                    
-                    st.markdown(reply)
-                    st.session_state.messages.append({"role": "assistant", "content": reply})
-                    
-                except Exception as e:
-                    st.error(f"AI Error: {str(e)}")
-        else:
-            st.error(f"Please provide an API Key for {provider} in the Sidebar.")
+                            # calculate cost
+                            if hasattr(resp, 'usage') and resp.usage:
+                                in_tok = resp.usage.prompt_tokens
+                                out_tok = resp.usage.completion_tokens
+                                cost = (in_tok * model_info['in'] / 1_000_000) + (out_tok * model_info['out'] / 1_000_000)
+                                
+                                st.session_state['total_tokens'] += (in_tok + out_tok)
+                                st.session_state['total_cost'] += cost
+                        
+                        st.markdown(reply)
+                        st.session_state.messages.append({"role": "assistant", "content": reply})
+                        
+                    except Exception as e:
+                        st.error(f"AI Error: {str(e)}")
+            else:
+                st.error(f"Please provide an API Key for {provider} in the Sidebar.")
 
 
 if __name__ == "__main__":
